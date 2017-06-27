@@ -87,6 +87,13 @@ Object HHVM_STATIC_METHOD(CallCredentials, createComposite,
   return newCallCredentialsObj;
 }
 
+
+Variant HHVM_STATIC_METHOD(CallCredentials, meep,
+  const Array& input) {
+
+  return Variant();
+}
+
 /**
  * Create a call credentials object from the plugin API
  * @param function $fci The callback function

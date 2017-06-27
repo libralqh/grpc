@@ -51,6 +51,9 @@ typedef struct plugin_state {
   Variant function;
 } plugin_state;
 
+Variant HHVM_STATIC_METHOD(CallCredentials, meep,
+  const Array& input);
+
 Object HHVM_STATIC_METHOD(CallCredentials, createComposite,
   const Object& cred1_obj,
   const Object& cred2_obj);

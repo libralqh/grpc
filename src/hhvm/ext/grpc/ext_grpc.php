@@ -85,6 +85,9 @@ class CallCredentials {
   <<__Native>>
   public static function createFromPlugin((function(object): array) $callback): CallCredentials;
 
+  <<__Native>>
+  public static function meep(array $moop): mixed;
+
 }
 
 <<__NativeData("Grpc\\Channel")>>

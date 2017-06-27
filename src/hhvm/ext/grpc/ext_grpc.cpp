@@ -101,6 +101,7 @@ class GrpcExtension : public Extension {
 
       HHVM_STATIC_MALIAS(Grpc\\CallCredentials, createComposite, CallCredentials, createComposite);
       HHVM_STATIC_MALIAS(Grpc\\CallCredentials, createFromPlugin, CallCredentials, createFromPlugin);
+      HHVM_STATIC_MALIAS(Grpc\\CallCredentials, meep, CallCredentials, meep);
 
       HHVM_MALIAS(Grpc\\Channel, __construct, Channel, __construct);
       HHVM_MALIAS(Grpc\\Channel, getTarget, Channel, getTarget);

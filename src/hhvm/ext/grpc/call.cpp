@@ -340,7 +340,6 @@ Object HHVM_METHOD(Call, startBatch,
       }
       if (ops[i].op == GRPC_OP_RECV_MESSAGE) {
         grpc_byte_buffer_destroy(message);
-        req::free(message_str);
       }
     }
     return resultObj;
@@ -422,11 +421,13 @@ bool hhvm_create_metadata_array(const Array& array, grpc_metadata_array *metadat
   for (ArrayIter iter(array); iter; ++iter) {
     Variant key = iter.first();
     if (!key.isString() || key.isNull()) {
+      throw_invalid_argument("hhvm_create_metadata_array: failure 1");
       return false;
     }
 
     Variant value = iter.second();
     if (!value.isArray()) {
+      throw_invalid_argument("hhvm_create_metadata_array: failure 2");
       return false;
     }
 
@@ -438,30 +439,36 @@ bool hhvm_create_metadata_array(const Array& array, grpc_metadata_array *metadat
   for (ArrayIter iter(array); iter; ++iter) {
     Variant key = iter.first();
     if (!key.isString()) {
+      throw_invalid_argument("hhvm_create_metadata_array: failure 3");
       return false;
     }
 
     if (!grpc_header_key_is_legal(grpc_slice_from_static_string(key.toString().c_str()))) {
+      throw_invalid_argument("hhvm_create_metadata_array: failure 4");
       return false;
     }
 
     Variant value = iter.second();
     if (!value.isArray()) {
+      throw_invalid_argument("hhvm_create_metadata_array: failure 5");
       return false;
     }
+
+    String keyToString = String(key.toString(), CopyString);
 
     Array innerArray = value.toArray();
     for (ArrayIter iter2(innerArray); iter2; ++iter2) {
       Variant key2 = iter2.first();
       Variant value2 = iter2.second();
       if (!value2.isString()) {
+        throw_invalid_argument("hhvm_create_metadata_array: failure 6: %s", keyToString.c_str());
         return false;
       }
 
-      String value2String = value2.toString();
+      String value2ToString = String(value2.toString(), CopyString);
 
-      metadata->metadata[metadata->count].key = grpc_slice_from_copied_string(key.toString().c_str());
-      metadata->metadata[metadata->count].value = grpc_slice_from_copied_buffer(value2String.c_str(), value2String.length());
+      metadata->metadata[metadata->count].key = grpc_slice_from_copied_string(keyToString.c_str());
+      metadata->metadata[metadata->count].value = grpc_slice_from_copied_buffer(value2ToString.c_str(), value2ToString.length());
       metadata->count += 1;
     }
   }
