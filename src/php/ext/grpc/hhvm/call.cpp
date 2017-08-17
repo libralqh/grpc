@@ -21,6 +21,8 @@
 #include <future>
 #include <mutex>
 #include <sstream>
+#include <chrono>
+#include <thread>
 
 #ifdef HAVE_CONFIG_H
     #include "config.h"
@@ -554,6 +556,8 @@ Object HHVM_METHOD(Call, startBatch,
     //grpc_completion_queue_next(pCallData->queue()->queue(), pCallData->call(),
     //                            gpr_inf_future(GPR_CLOCK_REALTIME), nullptr);
 
+    std::cout << "Main request thread id:" << std::this_thread::get_id() << std::endl;
+
     std::thread t1{grpc_completion_queue_next, pCallData->queue()->queue(),
                                                       gpr_inf_future(GPR_CLOCK_REALTIME), nullptr};
 
@@ -582,6 +586,7 @@ Object HHVM_METHOD(Call, startBatch,
             }
         }
     }
+
     if (t1.joinable()) t1.join();
 
     // process results of call

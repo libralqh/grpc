@@ -128,6 +128,8 @@ private:
     std::unordered_map<CallCredentialsData*,MetaDataInfo> m_MetaDataMap;
 };
 
+void print_thread_id(std::thread::id id);
+
 void plugin_do_get_metadata(void *ptr, grpc_auth_metadata_context context,
                             grpc_credentials_plugin_metadata_cb cb,
                             void *user_data);
