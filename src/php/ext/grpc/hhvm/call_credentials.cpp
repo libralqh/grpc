@@ -219,6 +219,15 @@ int plugin_get_metadata(
         for (size_t i = 0; i < metadata.size(); ++i)
         {
             creds_md[i] = metadata.data()[i];
+
+            // TODO:
+            // Right now we Increase the ref of each slice by 1 because it will be decreased by 1
+            // when this function goes out of scope and MetadataArray is destructed
+            // which then destructs (derefs) the Slice's it's holding.
+            // Really what we probably need to add some sort of copy method MetadataArray
+            // so that the slices it holds don't become invalid
+            gpr_slice_ref(creds_md[i].key);
+            gpr_slice_ref(creds_md[i].value);
         }
     }
     return true;  // Synchronous return.
