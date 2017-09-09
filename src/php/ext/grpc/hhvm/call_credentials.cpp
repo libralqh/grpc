@@ -30,6 +30,7 @@
 #include "hphp/runtime/vm/native-data.h"
 
 #include "grpc/support/alloc.h"
+#include "grpc/support/string_util.h"
 
 namespace HPHP {
 
@@ -40,7 +41,6 @@ namespace HPHP {
 typedef struct plugin_state
 {
     Variant callback;
-    CallCredentialsData* pCallCredentials;
 } plugin_state;
 
 // forward declarations
@@ -153,7 +153,6 @@ Object HHVM_STATIC_METHOD(CallCredentials, createFromPlugin,
 
     plugin_state *pState{ reinterpret_cast<plugin_state*>(gpr_zalloc(sizeof(plugin_state))) };
     pState->callback = callback;
-    pState->pCallCredentials = pNewCallCredentialsData;
 
     grpc_metadata_credentials_plugin plugin;
     plugin.get_metadata = plugin_get_metadata;
@@ -186,7 +185,6 @@ int plugin_get_metadata(
     HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata") // Degug Trace
 
     plugin_state* const pState{ reinterpret_cast<plugin_state *>(ptr) };
-    CallCredentialsData* const pCallCrendentials{ pState->pCallCredentials };
 
     Object returnObj{ SystemLib::AllocStdClassObject() };
     returnObj.o_set("service_url", String(context.service_url, CopyString));
@@ -209,7 +207,7 @@ int plugin_get_metadata(
         return true;
     }
 
-    if (metadata.count > GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX)
+    if (metadata.size() > GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX)
     {
         *status = GRPC_STATUS_INTERNAL;
         *error_details = gpr_strdup("PHP plugin credentials returned too many metadata entries");
@@ -217,10 +215,10 @@ int plugin_get_metadata(
     else
     {
         // Return data to core.
-        *num_creds_md = metadata.count;
-        for (size_t i = 0; i < metadata.count; ++i)
+        *num_creds_md = metadata.size();
+        for (size_t i = 0; i < metadata.size(); ++i)
         {
-            creds_md[i] = metadata.metadata[i];
+            creds_md[i] = metadata.data()[i];
         }
     }
     return true;  // Synchronous return.

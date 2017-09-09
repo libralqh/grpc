@@ -365,7 +365,6 @@ Object HHVM_METHOD(Call, startBatch,
     CallData* const pCallData{ Native::data<CallData>(this_) };
 
     size_t op_num{ 0 };
-    bool sending_initial_metadata{ false };
     for (ArrayIter iter(actions); iter && (op_num < maxActions); ++iter, ++op_num)
     {
         Variant key{ iter.first() };
@@ -393,7 +392,6 @@ Object HHVM_METHOD(Call, startBatch,
 
             ops[op_num].data.send_initial_metadata.count = opsManaged.send_metadata.size();
             ops[op_num].data.send_initial_metadata.metadata = opsManaged.send_metadata.data();
-            sending_initial_metadata = true;
             break;
         }
         case GRPC_OP_SEND_MESSAGE:
@@ -508,7 +506,7 @@ Object HHVM_METHOD(Call, startBatch,
 
     bool callFailed{ false };
     grpc_status_code failCode{ GRPC_STATUS_OK };
-    auto callFailure = [&callFailed, &credentialedCall, &opsManaged, pCallData](void)
+    auto callFailure = [&callFailed, pCallData](void)
     {
         // cancel the call with the server
         //grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,

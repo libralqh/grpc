@@ -103,7 +103,7 @@ public:
     grpc_metadata* const data(void) { return m_Array.metadata; }
     const grpc_metadata* const data(void) const { return m_Array.metadata; }
     size_t size(void) const { return m_Array.count; }
-    const grpc_metadata_array& array(void) const { return m_Array; } //
+    const grpc_metadata_array& array(void) const { return m_Array; }
     grpc_metadata_array& array(void) { return m_Array; } // several methods need non const &
     Variant phpData(void) const;
 
