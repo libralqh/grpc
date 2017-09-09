@@ -44,72 +44,14 @@ typedef struct plugin_state
 } plugin_state;
 
 // forward declarations
-void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
-                         grpc_credentials_plugin_metadata_cb cb,
-                         void *user_data);
+int plugin_get_metadata(
+    void *ptr, grpc_auth_metadata_context context,
+    grpc_credentials_plugin_metadata_cb cb, void *user_data,
+    grpc_metadata creds_md[GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX],
+    size_t *num_creds_md, grpc_status_code *status,
+    const char **error_details);
 void plugin_destroy_state(void *ptr);
 
-PluginMetadataInfo::~PluginMetadataInfo(void)
-{
-    std::lock_guard<std::mutex> lock{ m_Lock };
-    m_MetaDataMap.clear();
-}
-
-PluginMetadataInfo& PluginMetadataInfo::getPluginMetadataInfo(void)
-{
-    static PluginMetadataInfo s_PluginMetadataInfo;
-    return s_PluginMetadataInfo;
-}
-
-void PluginMetadataInfo::setInfo(CallCredentialsData* const pCallCredentials,
-                                 MetaDataInfo&& metaDataInfo)
-{
-    std::lock_guard<std::mutex> lock{ m_Lock };
-    auto itrPair = m_MetaDataMap.emplace(pCallCredentials, std::move(metaDataInfo));
-    if (!itrPair.second)
-    {
-        // call credentials exist already so update
-        // TODO:  The second entry may need to be a vector if we have multiple
-        // stacked but current thinking is this can't happen
-        itrPair.first->second = std::move(metaDataInfo);
-    }
-}
-
-typename PluginMetadataInfo::MetaDataInfo
-PluginMetadataInfo::getInfo(CallCredentialsData* const pCallCredentials)
-{
-    MetaDataInfo metaDataInfo{};
-    {
-        std::lock_guard<std::mutex> lock{ m_Lock };
-        auto itrFind = m_MetaDataMap.find(pCallCredentials);
-        if (itrFind != m_MetaDataMap.cend())
-        {
-            // get the metadata info
-            metaDataInfo = std::move(itrFind->second);
-
-            // erase the entry
-            m_MetaDataMap.erase(itrFind);
-        }
-    }
-    return metaDataInfo;
-}
-
-bool PluginMetadataInfo::deleteInfo(CallCredentialsData* const pCallCredentials)
-{
-    std::lock_guard<std::mutex> lock{ m_Lock };
-    auto itrFind = m_MetaDataMap.find(pCallCredentials);
-    if (itrFind != m_MetaDataMap.cend())
-    {
-        // erase the entry
-        m_MetaDataMap.erase(itrFind);
-        return true;
-    }
-    else
-    {
-        // does not exist
-        return false;
-    }
-}
 
 /*****************************************************************************/
 /*                           Call Credentials Data                           */
@@ -234,18 +176,21 @@ Object HHVM_STATIC_METHOD(CallCredentials, createFromPlugin,
 /*                       Crendentials Plugin Functions                       */
 /*****************************************************************************/
 
-// This work done in this function MUST be done on the same thread as the HHVM call request
-void plugin_do_get_metadata(void *ptr, grpc_auth_metadata_context context,
-                            grpc_credentials_plugin_metadata_cb cb,
-                            void *user_data)
+int plugin_get_metadata(
+    void *ptr, grpc_auth_metadata_context context,
+    grpc_credentials_plugin_metadata_cb cb, void *user_data,
+    grpc_metadata creds_md[GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX],
+    size_t *num_creds_md, grpc_status_code *status,
+    const char **error_details)
 {
-    HHVM_TRACE_SCOPE("CallCredentials plugin_do_get_metadata") // Degug Trace
+    HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata") // Degug Trace
+
+    plugin_state* const pState{ reinterpret_cast<plugin_state *>(ptr) };
+    CallCredentialsData* const pCallCrendentials{ pState->pCallCredentials };
 
     Object returnObj{ SystemLib::AllocStdClassObject() };
     returnObj.o_set("service_url", String(context.service_url, CopyString));
     returnObj.o_set("method_name", String(context.method_name, CopyString));
-
-    plugin_state* const pState{ reinterpret_cast<plugin_state *>(ptr) };
 
     Variant retVal{ vm_call_user_func(pState->callback, make_packed_array(returnObj)) };
     if (!retVal.isArray())
@@ -253,68 +198,32 @@ void plugin_do_get_metadata(void *ptr, grpc_auth_metadata_context context,
         SystemLib::throwInvalidArgumentExceptionObject("Callback return value expected an array.");
     }
 
-    grpc_status_code code{ GRPC_STATUS_OK };
+    *num_creds_md = 0;
+    *status = GRPC_STATUS_OK;
+    *error_details = NULL;
+
     MetadataArray metadata;
     if (!metadata.init(retVal.toArray()))
     {
-        code = GRPC_STATUS_INVALID_ARGUMENT;
+        *status = GRPC_STATUS_INVALID_ARGUMENT;
+        return true;
     }
 
-    // Pass control back to core
-    cb(user_data, metadata.data(), metadata.size(), code, nullptr);
-}
-
-void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
-                         grpc_credentials_plugin_metadata_cb cb,
-                         void *user_data)
-{
-    HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata") // Degug Trace
-
-    plugin_state *pState{ reinterpret_cast<plugin_state *>(ptr) };
-    CallCredentialsData* const pCallCrendentials{ pState->pCallCredentials };
-
-    PluginMetadataInfo& pluginMetaDataInfo{ PluginMetadataInfo::getPluginMetadataInfo() };
-    PluginMetadataInfo::MetaDataInfo metaDataInfo{ pluginMetaDataInfo.getInfo(pCallCrendentials) };
-
-    MetadataPromise* const pMetaDataPromise{ metaDataInfo.metadataPromise() };
-    if (!pMetaDataPromise)
+    if (metadata.count > GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX)
     {
-        // failed to get promise associated with call credentials.  This can happen if the call timed
-        // out and the metadata was erased before this function was invoked
-        return;
-    }
-
-    std::mutex& metaDataMutex{ *(metaDataInfo.metadataMutex()) };
-    const bool& callCancelled{ *(metaDataInfo.callCancelled()) };
-    const std::thread::id& callThreadId{ metaDataInfo.threadId() };
-    if (callThreadId == std::this_thread::get_id())
-    {
-        HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata same thread") // Degug Trace
-        plugin_get_metadata_params params{ ptr, std::move(context), std::move(cb), user_data,
-                                           true };
-        {
-            // check if call cancelled from timeout before performing callback function
-            std::lock_guard<std::mutex> lock{ metaDataMutex };
-            if (!callCancelled)
-            {
-                plugin_do_get_metadata(ptr, context, cb, user_data);
-                pMetaDataPromise->set_value(std::move(params));
-            }
-            else
-            {
-                // call was cancelled
-                return;
-            }
-        }
+        *status = GRPC_STATUS_INTERNAL;
+        *error_details = gpr_strdup("PHP plugin credentials returned too many metadata entries");
     }
     else
     {
-        HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata different thread") // Degug Trace
-        plugin_get_metadata_params params{ ptr, std::move(context), std::move(cb), user_data };
-
-        // return the meta data params in the promise
-        pMetaDataPromise->set_value(std::move(params));
+        // Return data to core.
+        *num_creds_md = metadata.count;
+        for (size_t i = 0; i < metadata.count; ++i)
+        {
+            creds_md[i] = metadata.metadata[i];
+        }
     }
+    return true;  // Synchronous return.
 }
 
 void plugin_destroy_state(void *ptr)

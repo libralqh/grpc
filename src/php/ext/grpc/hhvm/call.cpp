@@ -61,16 +61,13 @@ Class* const CallData::getClass(void)
 }
 
 CallData::CallData(void) : m_pCall{ nullptr }, m_Owned{ false }, m_pCallCredentials{ nullptr },
-    m_pChannel{ nullptr }, m_Timeout{ 0 },
-    m_pMetadataPromise{ std::make_shared<MetadataPromise>() },
-    m_pMetadataMutex{ std::make_shared<std::mutex>() }, m_pCallCancelled{ std::make_shared<bool>(false) }
+    m_pChannel{ nullptr }, m_Timeout{ 0 }
 {
 }
 
 CallData::CallData(grpc_call* const call, const bool owned, const int32_t timeoutMs) :
     m_pCall{ call }, m_Owned{ owned }, m_pCallCredentials{ nullptr }, m_pChannel{ nullptr },
-    m_Timeout{ timeoutMs }, m_pMetadataPromise{ std::make_shared<MetadataPromise>() },
-    m_pMetadataMutex{ std::make_shared<std::mutex>() }, m_pCallCancelled{ std::make_shared<bool>(false) }
+    m_Timeout{ timeoutMs }
 {
 }
 
@@ -509,37 +506,13 @@ Object HHVM_METHOD(Call, startBatch,
         ops[op_num].reserved = nullptr;
     }
 
-    // set up the crendential promise for the call credentials set up with this call for
-    // the plugin_get_metadata routine
-    bool credentialedCall{ sending_initial_metadata && pCallData->credentialed() };
-    if (credentialedCall)
-    {
-        PluginMetadataInfo& pluginMetadataInfo{ PluginMetadataInfo::getPluginMetadataInfo() };
-        PluginMetadataInfo::MetaDataInfo metaDataInfo{ pCallData->sharedPromise(),
-                                                       pCallData->sharedMutex(),
-                                                       pCallData->sharedCancelled(),
-                                                       std::this_thread::get_id() };
-        pluginMetadataInfo.setInfo(pCallData->callCredentials(), std::move(metaDataInfo));
-    }
-
     bool callFailed{ false };
     grpc_status_code failCode{ GRPC_STATUS_OK };
     auto callFailure = [&callFailed, &credentialedCall, &opsManaged, pCallData](void)
     {
-        // clean up any meta data info
-        if (credentialedCall)
-        {
-            PluginMetadataInfo& pluginMetadataInfo{ PluginMetadataInfo::getPluginMetadataInfo() };
-            pluginMetadataInfo.deleteInfo(pCallData->callCredentials());
-        }
-        {
-            // set call cancelled shared flag
-            std::lock_guard<std::mutex> lock{ pCallData->metadataMutex() };
-            pCallData->callCancelled()=true;
-        }
         // cancel the call with the server
-        grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,
-                                     "RPC Call Timeout Exceeded", nullptr);
+        //grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,
+        //                             "RPC Call Timeout Exceeded", nullptr);
         callFailed = true;
     };
 
@@ -567,34 +540,6 @@ Object HHVM_METHOD(Call, startBatch,
         // failed so clean up and return empty object
         callFailure();
         failCode = GRPC_STATUS_DEADLINE_EXCEEDED;
-    }
-
-    // This might look weird but it's required due to the way HHVM works. Each request in HHVM
-    // has it's own thread and you cannot run application code on a single request in more than
-    // one thread. However gRPC calls call_credentials.cpp:plugin_get_metadata in a different thread
-    // in many cases and that violates the thread safety within a request in HHVM and causes segfaults
-    // at any reasonable concurrency.
-    if (credentialedCall && !callFailed)
-    {
-        // wait on the plugin_get_metadata to complete
-        auto getPluginMetadataFuture = pCallData->metadataPromise().get_future();
-        std::future_status status{ getPluginMetadataFuture.wait_for(std::chrono::milliseconds{ pCallData->getTimeout() }) };
-        if (status == std::future_status::timeout)
-        {
-            // failed so clean up and return empty object
-            callFailure();
-            failCode = GRPC_STATUS_UNAUTHENTICATED;
-        }
-        else
-        {
-            plugin_get_metadata_params metaDataParams{ getPluginMetadataFuture.get() };
-            if (!metaDataParams.completed)
-            {
-                // call the plugin in this thread if it wasn't completed already
-                plugin_do_get_metadata(metaDataParams.ptr, metaDataParams.context,
-                                       metaDataParams.cb, metaDataParams.user_data);
-            }
-        }
     }
 
     // process results of call
