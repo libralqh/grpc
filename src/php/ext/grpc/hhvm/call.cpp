@@ -509,8 +509,8 @@ Object HHVM_METHOD(Call, startBatch,
     auto callFailure = [&callFailed, pCallData](void)
     {
         // cancel the call with the server
-        //grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,
-        //                             "RPC Call Timeout Exceeded", nullptr);
+        grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,
+                                     "RPC Call Timeout Exceeded", nullptr);
         callFailed = true;
     };
 
