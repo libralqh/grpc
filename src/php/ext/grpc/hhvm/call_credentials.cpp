@@ -44,9 +44,12 @@ typedef struct plugin_state
 } plugin_state;
 
 // forward declarations
-void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
-                         grpc_credentials_plugin_metadata_cb cb,
-                         void *user_data);
+int plugin_get_metadata(
+    void *ptr, grpc_auth_metadata_context context,
+    grpc_credentials_plugin_metadata_cb cb, void *user_data,
+    grpc_metadata creds_md[GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX],
+    size_t *num_creds_md, grpc_status_code *status,
+    const char **error_details);
 void plugin_destroy_state(void *ptr);
 
 PluginMetadataInfo::~PluginMetadataInfo(void)
@@ -235,9 +238,12 @@ Object HHVM_STATIC_METHOD(CallCredentials, createFromPlugin,
 /*****************************************************************************/
 
 // This work done in this function MUST be done on the same thread as the HHVM call request
-void plugin_do_get_metadata(void *ptr, grpc_auth_metadata_context context,
-                            grpc_credentials_plugin_metadata_cb cb,
-                            void *user_data)
+int plugin_do_get_metadata(
+    void *ptr, grpc_auth_metadata_context context,
+    grpc_credentials_plugin_metadata_cb cb, void *user_data,
+    grpc_metadata creds_md[GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX],
+    size_t *num_creds_md, grpc_status_code *status,
+    const char **error_details)
 {
     HHVM_TRACE_SCOPE("CallCredentials plugin_do_get_metadata") // Degug Trace
 
@@ -264,9 +270,12 @@ void plugin_do_get_metadata(void *ptr, grpc_auth_metadata_context context,
     cb(user_data, metadata.data(), metadata.size(), code, nullptr);
 }
 
-void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
-                         grpc_credentials_plugin_metadata_cb cb,
-                         void *user_data)
+int plugin_get_metadata(
+    void *ptr, grpc_auth_metadata_context context,
+    grpc_credentials_plugin_metadata_cb cb, void *user_data,
+    grpc_metadata creds_md[GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX],
+    size_t *num_creds_md, grpc_status_code *status,
+    const char **error_details)
 {
     HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata") // Degug Trace
 
@@ -284,6 +293,10 @@ void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
         return;
     }
 
+    *num_creds_md = 0;
+    *status = GRPC_STATUS_OK;
+    *error_details = NULL;
+
     std::mutex& metaDataMutex{ *(metaDataInfo.metadataMutex()) };
     const bool& callCancelled{ *(metaDataInfo.callCancelled()) };
     const std::thread::id& callThreadId{ metaDataInfo.threadId() };
@@ -297,7 +310,7 @@ void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
             std::lock_guard<std::mutex> lock{ metaDataMutex };
             if (!callCancelled)
             {
-                plugin_do_get_metadata(ptr, context, cb, user_data);
+                plugin_do_get_metadata(ptr, context, cb, user_data, creds_md, num_creds_md, status);
                 pMetaDataPromise->set_value(std::move(params));
             }
             else
@@ -310,7 +323,7 @@ void plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
     else
     {
         HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata different thread") // Degug Trace
-        plugin_get_metadata_params params{ ptr, std::move(context), std::move(cb), user_data };
+        plugin_get_metadata_params params{ ptr, std::move(context), std::move(cb), user_data, creds_md, num_creds_md, status };
 
         // return the meta data params in the promise
         pMetaDataPromise->set_value(std::move(params));
