@@ -339,22 +339,22 @@ void HHVM_METHOD(Call, __construct,
 
     // NOTE: This must be called before the create call so the timespan is not
     // encrouched upon
-    int32_t timeout{ gpr_time_to_millis(gpr_convert_clock_type(pDeadlineTimevalData->time(),
-                                                           GPR_TIMESPAN)) };
+    gpr_timespec deadlineTime{ gpr_convert_clock_type(pDeadlineTimevalData->time(),
+                                                      GPR_TIMESPAN) };
+    int32_t timeout{ gpr_time_to_millis(deadlineTime) };
 
     grpc_call* const pCall{ grpc_channel_create_call(pChannelData->channel(),
                                                      nullptr, GRPC_PROPAGATE_DEFAULTS,
                                                      pCompletionQueue->queue(),
                                                      method_slice.slice(),
                                                      !host_slice.empty() ? &host_slice.slice() : nullptr,
-                                                     pDeadlineTimevalData->time(),
+                                                     deadlineTime,/*gpr_inf_future(GPR_CLOCK_REALTIME),*//*pDeadlineTimevalData->time(),*/
                                                      nullptr) };
 
     if (!pCall)
     {
         SystemLib::throwBadMethodCallExceptionObject("failed to create call");
     }
-
 
     pCallData->init(pCall, true, timeout);
     pCallData->setQueue(std::move(pCompletionQueue));
