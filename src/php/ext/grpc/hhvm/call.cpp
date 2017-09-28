@@ -350,7 +350,7 @@ void HHVM_METHOD(Call, __construct,
                                                      pCompletionQueue->queue(),
                                                      method_slice.slice(),
                                                      !host_slice.empty() ? &host_slice.slice() : nullptr,
-                                                     deadlineTime,/*gpr_inf_future(GPR_CLOCK_REALTIME),*//*pDeadlineTimevalData->time(),*/
+                                                     /*deadlineTime,*/gpr_inf_future(GPR_CLOCK_REALTIME),/*pDeadlineTimevalData->time(),*/
                                                      nullptr) };
 
     if (!pCall)
@@ -591,12 +591,12 @@ Object HHVM_METHOD(Call, startBatch,
             pluginMetadataInfo.deleteInfo(pCallData->callCredentials());
         }
 
-        /*if (timeOut)
+        if (timeOut)
         {
             // cancel the call with the server
             grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,
                                          "RPC Call Timeout Exceeded", nullptr);
-
+/*
             // create a new ops managed for this cancel call
             std::unique_ptr<OpsManaged> pCancelledOpsManage{ new OpsManaged{} };
             OpsManaged& cancelledOpsManaged{ *(pCancelledOpsManage.get()) };
@@ -620,7 +620,7 @@ Object HHVM_METHOD(Call, startBatch,
                                                              gpr_inf_future(GPR_CLOCK_REALTIME),
                                                              nullptr));
             }
-
+*/
             // wait for failure after cancelling call
             grpc_event event(grpc_completion_queue_pluck(pCallData->queue()->queue(), pTag,
                                                          gpr_inf_future(GPR_CLOCK_REALTIME),
@@ -629,9 +629,9 @@ Object HHVM_METHOD(Call, startBatch,
             callFailed = true;
         }
         else
-        {*/
+        {
             callFailed = true;
-        //}
+        }
 
     };
 
@@ -647,8 +647,8 @@ Object HHVM_METHOD(Call, startBatch,
         // wait for call batch to complete
         grpc_event event ( grpc_completion_queue_pluck(
                                 pCallData->queue()->queue(), pTag,
-                                gpr_inf_future(GPR_CLOCK_REALTIME),
-                                /*gpr_time_from_millis(pCallData->getTimeout(), GPR_TIMESPAN),*/
+                                /*gpr_inf_future(GPR_CLOCK_REALTIME),*/
+                                gpr_time_from_millis(pCallData->getTimeout(), GPR_TIMESPAN),
                                 nullptr) );
 
         if ((event.type != GRPC_OP_COMPLETE) || (event.tag != &opsManaged) || (event.success == 0))

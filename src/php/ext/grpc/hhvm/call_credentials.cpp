@@ -349,7 +349,7 @@ int plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
         if (callThreadId == std::this_thread::get_id())
         {
             HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata same thread") // Debug Trace
-            std::cout << "CallCredentials plugin_get_metadata same thread" << std::endl;
+            //std::cout << "CallCredentials plugin_get_metadata same thread" << std::endl;
 
             bool result{ plugin_do_get_metadata(ptr, contextServiceUrl, contextMethodName,
                                                 cb, user_data,
@@ -370,7 +370,7 @@ int plugin_get_metadata(void *ptr, grpc_auth_metadata_context context,
         else
         {
             HHVM_TRACE_SCOPE("CallCredentials plugin_get_metadata different thread") // Debug Trace
-            std::cout << "CallCredentials plugin_get_metadata different thread" << std::endl;
+            //std::cout << "CallCredentials plugin_get_metadata different thread" << std::endl;
 
             plugin_get_metadata_params params{ ptr, std::move(contextServiceUrl),
                                                std::move(contextMethodName),
