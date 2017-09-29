@@ -262,13 +262,10 @@ bool plugin_do_get_metadata(void *ptr, const std::string& serviceURL,
     returnObj.o_set("method_name", String(methodName, CopyString));
     Variant params{ make_packed_array(returnObj) };
 
-    Variant retVal{ vm_call_user_func(pState->callback, params) };
-
-    *error_details = nullptr;
-    *status = GRPC_STATUS_OK;
-    if (retVal.isNull() || !retVal.isArray())
+    auto failCredentials = [&async, &cb, &num_creds_md, &status, &user_data]
+                           (const grpc_status_code errorCode)
     {
-        *status = GRPC_STATUS_UNKNOWN;
+        *status = errorCode;
         if (async)
         {
             cb(user_data, nullptr, 0, *status, nullptr);
@@ -277,21 +274,40 @@ bool plugin_do_get_metadata(void *ptr, const std::string& serviceURL,
         {
             *num_creds_md = 0;
         }
+    };
+
+    *error_details = nullptr;
+    *status = GRPC_STATUS_OK;
+    Variant retVal{};
+    try
+    {
+        retVal = vm_call_user_func(pState->callback, params);
+    }
+    catch(Exception& e)
+    {
+        // catch PHP exception
+        failCredentials(GRPC_STATUS_UNKNOWN);
+
+        return false;
+    }
+    catch(...)
+    {
+        // catch other exception
+        failCredentials(GRPC_STATUS_UNKNOWN);
+
+        return false;
+    }
+
+    if (retVal.isNull() || !retVal.isArray())
+    {
+        failCredentials(GRPC_STATUS_UNKNOWN);
     }
     else
     {
         MetadataArray metadata{ true };
         if (!metadata.init(retVal.toArray()))
         {
-            *status = GRPC_STATUS_INVALID_ARGUMENT;
-            if (async)
-            {
-                cb(user_data, nullptr, 0, *status, nullptr);
-            }
-            else
-            {
-                *num_creds_md = 0;
-            }
+            failCredentials(GRPC_STATUS_INVALID_ARGUMENT);
         }
         else
         {
@@ -302,19 +318,18 @@ bool plugin_do_get_metadata(void *ptr, const std::string& serviceURL,
             }
             else
             {
-                *num_creds_md = metadata.size();
-                for (size_t i{ 0 }; i < *num_creds_md; ++i)
+                if (metadata.size() <= GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX)
                 {
-                    creds_md[i] = metadata.data()[i];
-
-                    // TODO:
-                    // Right now we Increase the ref of each slice by 1 because it will be decreased by 1
-                    // when this function goes out of scope and MetadataArray is destructed
-                    // which then destructs (derefs) the Slice's it's holding.
-                    // Really what we probably need to add some sort of copy method MetadataArray
-                    // so that the slices it holds don't become invalid
-                    gpr_slice_ref(creds_md[i].key);
-                    gpr_slice_ref(creds_md[i].value);
+                    *num_creds_md = metadata.size();
+                    for (size_t i{ 0 }; i < metadata.size(); ++i)
+                    {
+                        creds_md[i] = metadata.data()[i];
+                    }
+                    metadata.release();
+                }
+                else
+                {
+                    failCredentials(GRPC_STATUS_OUT_OF_RANGE);
                 }
             }
         }
