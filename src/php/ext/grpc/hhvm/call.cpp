@@ -19,6 +19,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <cstring>
 #include <future>
 #include <mutex>
 #include <sstream>
@@ -232,6 +233,29 @@ void MetadataArray::release(void)
     }
 }
 
+// copy the metadata array untothe passed metadata array of size
+// metadataSize
+bool MetadataArray::copyMetadata(grpc_metadata* const pMetadataArray,
+                                 const size_t metadataArraySize)
+{
+    // check for enough room in destination array
+    if (m_Array.count > metadataArraySize) return false;
+
+    for(size_t elem{ 0 }; elem < m_Array.count; ++elem)
+    {
+        // copy metadata
+        std::memcpy(reinterpret_cast<void*>(&(pMetadataArray[elem])),
+                    reinterpret_cast<const void*>(&(m_Array.metadata[elem])),
+                    sizeof(grpc_metadata));
+
+        // increase ref counts on slices so they stay valid when
+        // original metadata goes out of scope
+        gpr_slice_ref(pMetadataArray[elem].key);
+        gpr_slice_ref(pMetadataArray[elem].value);
+    }
+    return true;
+}
+
 // Creates and returns a PHP array object with the data in a
 // grpc_metadata_array. Returns NULL on failure
 Variant MetadataArray::phpData(void) const
@@ -375,8 +399,7 @@ void HHVM_METHOD(Call, __construct,
                                                      pCompletionQueue->queue(),
                                                      method_slice.slice(),
                                                      !host_slice.empty() ? &host_slice.slice() : nullptr,
-                                                     /*deadlineTime,*/gpr_inf_future(GPR_CLOCK_REALTIME),/*pDeadlineTimevalData->time(),*/
-                                                     nullptr) };
+                                                     deadlineTime, nullptr) };
 
     if (!pCall)
     {
@@ -621,31 +644,7 @@ Object HHVM_METHOD(Call, startBatch,
             // cancel the call with the server
             grpc_call_cancel_with_status(pCallData->call(), GRPC_STATUS_DEADLINE_EXCEEDED,
                                          "RPC Call Timeout Exceeded", nullptr);
-/*
-            // create a new ops managed for this cancel call
-            std::unique_ptr<OpsManaged> pCancelledOpsManage{ new OpsManaged{} };
-            OpsManaged& cancelledOpsManaged{ *(pCancelledOpsManage.get()) };
 
-            // request receive status on cient
-            std::array<grpc_op, 1> cancelOps;
-            std::memset(cancelOps.data(), 0, sizeof(grpc_op) * cancelOps.size());
-            cancelOps[0].data.recv_status_on_client.trailing_metadata = &cancelledOpsManaged.recv_trailing_metadata.array();
-            cancelOps[0].data.recv_status_on_client.status = &cancelledOpsManaged.status;
-            cancelOps[0].data.recv_status_on_client.status_details = &cancelledOpsManaged.recv_status_details.slice();
-            cancelOps[0].op = static_cast<grpc_op_type>(GRPC_OP_RECV_STATUS_ON_CLIENT);
-            cancelOps[0].flags = 0;
-            cancelOps[0].reserved = nullptr;
-
-            void* const pCancelledTag{ &cancelledOpsManaged};
-            if (startBatch(cancelOps.data(), cancelOps.size(), pCancelledTag, true))
-            {
-                // wait for failure after cancelling call
-                grpc_event event(grpc_completion_queue_pluck(pCallData->queue()->queue(),
-                                                             pCancelledTag,
-                                                             gpr_inf_future(GPR_CLOCK_REALTIME),
-                                                             nullptr));
-            }
-*/
             // wait for failure after cancelling call
             grpc_event event(grpc_completion_queue_pluck(pCallData->queue()->queue(), pTag,
                                                          gpr_inf_future(GPR_CLOCK_REALTIME),

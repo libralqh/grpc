@@ -318,14 +318,12 @@ bool plugin_do_get_metadata(void *ptr, const std::string& serviceURL,
             }
             else
             {
-                if (metadata.size() <= GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX)
+                bool copyResult{ metadata.copyMetadata(creds_md,
+                                                       GRPC_METADATA_CREDENTIALS_PLUGIN_SYNC_MAX) };
+
+                if (copyResult)
                 {
                     *num_creds_md = metadata.size();
-                    for (size_t i{ 0 }; i < metadata.size(); ++i)
-                    {
-                        creds_md[i] = metadata.data()[i];
-                    }
-                    metadata.release();
                 }
                 else
                 {

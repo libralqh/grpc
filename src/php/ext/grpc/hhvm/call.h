@@ -64,6 +64,8 @@ public:
     Variant phpData(void) const;
     bool owned(void) const { return m_Owned; }
     void release(void);
+    bool copyMetadata(grpc_metadata* const pMetadataArray,
+                      const size_t metadataArraySize);
 
 private:
     // helper functions
