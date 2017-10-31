@@ -43,7 +43,7 @@ class BaseStub
     public function __construct($hostname, $opts, Channel $channel = null)
     {
         $ssl_roots = file_get_contents(
-            dirname(__FILE__).'/../../../../etc/roots.pem');
+            dirname(__FILE__).'/../../etc/roots.pem');
         \QMetric::startNonoverlappingBenchmark('app_time_grpc_channelcreds_setdefaultrootspem');
         ChannelCredentials::setDefaultRootsPem($ssl_roots);
         \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_channelcreds_setdefaultrootspem');
