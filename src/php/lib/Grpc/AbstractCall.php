@@ -55,16 +55,16 @@ abstract class AbstractCall
             $now = Timeval::now();
             $delta = new Timeval($timeout);
             $deadline = $now->add($delta);
-            QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_timeval');
+            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_timeval');
         } else {
             QMetric::startBenchmark('app_time_grpc_timeval');
             $deadline = Timeval::infFuture();
-            QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_timeval');
+            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_timeval');
         }
 
         QMetric::startBenchmark('app_time_grpc_call_construct');
         $this->call = new Call($channel, $method, $deadline);
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_call_construct');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_call_construct');
 
         $this->deserialize = $deserialize;
         $this->metadata = null;
@@ -77,10 +77,10 @@ abstract class AbstractCall
             $call_credentials = CallCredentials::createFromPlugin(
                 $call_credentials_callback
             );
-            QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_call_creds_createfromplugin');
+            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_call_creds_createfromplugin');
             QMetric::startBenchmark('app_time_grpc_call_setcredentials');
             $this->call->setCredentials($call_credentials);
-            QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_call_setcredentials');
+            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_call_setcredentials');
         }
     }
 
@@ -107,7 +107,7 @@ abstract class AbstractCall
     {
         QMetric::startBenchmark('app_time_grpc_call_getpeer');
         $peer = $this->call->getPeer();
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_call_getpeer');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_call_getpeer');
         return $peer;
     }
 
@@ -118,7 +118,7 @@ abstract class AbstractCall
     {
         QMetric::startBenchmark('app_time_grpc_call_cancel');
         $this->call->cancel();
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_call_cancel');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_call_cancel');
     }
 
     /**
@@ -180,6 +180,6 @@ abstract class AbstractCall
     {
         QMetric::startBenchmark('app_time_grpc_call_setcredentials');
         $this->call->setCredentials($call_credentials);
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_call_setcredentials');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_call_setcredentials');
     }
 }

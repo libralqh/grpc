@@ -37,7 +37,7 @@ class ClientStreamingCall extends AbstractCall
         $this->call->startBatch([
             OP_SEND_INITIAL_METADATA => $metadata,
         ]);
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -58,7 +58,7 @@ class ClientStreamingCall extends AbstractCall
         $this->call->startBatch([
             OP_SEND_MESSAGE => $message_array,
         ]);
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -75,7 +75,7 @@ class ClientStreamingCall extends AbstractCall
             OP_RECV_MESSAGE => true,
             OP_RECV_STATUS_ON_CLIENT => true,
         ]);
-        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
         $this->metadata = $event->metadata;
 
         $status = $event->status;
