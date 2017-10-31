@@ -40,13 +40,13 @@ class UnaryCall extends AbstractCall
         if (isset($options['flags'])) {
             $message_array['flags'] = $options['flags'];
         }
-        QMetric::startBenchmark('app_time_grpc_startbatch');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
         $this->call->startBatch([
             OP_SEND_INITIAL_METADATA => $metadata,
             OP_SEND_MESSAGE => $message_array,
             OP_SEND_CLOSE_FROM_CLIENT => true,
         ]);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -63,9 +63,9 @@ class UnaryCall extends AbstractCall
         if ($this->metadata === null) {
             $batch[OP_RECV_INITIAL_METADATA] = true;
         }
-        QMetric::startBenchmark('app_time_grpc_startbatch');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
         $event = $this->call->startBatch($batch);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
         if ($this->metadata === null) {
             $this->metadata = $event->metadata;
         }
@@ -81,9 +81,9 @@ class UnaryCall extends AbstractCall
     public function getMetadata()
     {
         if ($this->metadata === null) {
-            QMetric::startBenchmark('app_time_grpc_startbatch');
+            \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
             $event = $this->call->startBatch([OP_RECV_INITIAL_METADATA => true]);
-            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+            \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
             $this->metadata = $event->metadata;
         }
         return $this->metadata;

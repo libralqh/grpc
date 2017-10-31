@@ -40,13 +40,13 @@ class ServerStreamingCall extends AbstractCall
         if (array_key_exists('flags', $options)) {
             $message_array['flags'] = $options['flags'];
         }
-        QMetric::startBenchmark('app_time_grpc_startbatch');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
         $this->call->startBatch([
             OP_SEND_INITIAL_METADATA => $metadata,
             OP_SEND_MESSAGE => $message_array,
             OP_SEND_CLOSE_FROM_CLIENT => true,
         ]);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -58,20 +58,20 @@ class ServerStreamingCall extends AbstractCall
         if ($this->metadata === null) {
             $batch[OP_RECV_INITIAL_METADATA] = true;
         }
-        QMetric::startBenchmark('app_time_grpc_startbatch');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
         $read_event = $this->call->startBatch($batch);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
         if ($this->metadata === null) {
             $this->metadata = $read_event->metadata;
         }
         $response = $read_event->message;
         while ($response !== null) {
             yield $this->_deserializeResponse($response);
-            QMetric::startBenchmark('app_time_grpc_startbatch');
+            \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
             $response = $this->call->startBatch([
                 OP_RECV_MESSAGE => true,
             ])->message;
-            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+            \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
         }
     }
 
@@ -83,11 +83,11 @@ class ServerStreamingCall extends AbstractCall
      */
     public function getStatus()
     {
-        QMetric::startBenchmark('app_time_grpc_startbatch');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
         $status_event = $this->call->startBatch([
             OP_RECV_STATUS_ON_CLIENT => true,
         ]);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
 
         $this->trailing_metadata = $status_event->status->metadata;
 
@@ -100,9 +100,9 @@ class ServerStreamingCall extends AbstractCall
     public function getMetadata()
     {
         if ($this->metadata === null) {
-            QMetric::startBenchmark('app_time_grpc_startbatch');
+            \QMetric::startNonoverlappingBenchmark('app_time_grpc_startbatch');
             $event = $this->call->startBatch([OP_RECV_INITIAL_METADATA => true]);
-            QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_startbatch');
+            \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_startbatch');
             $this->metadata = $event->metadata;
         }
         return $this->metadata;

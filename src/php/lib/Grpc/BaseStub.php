@@ -44,9 +44,9 @@ class BaseStub
     {
         $ssl_roots = file_get_contents(
             dirname(__FILE__).'/../../../../etc/roots.pem');
-        QMetric::startBenchmark('app_time_grpc_channelcreds_setdefaultrootspem');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_channelcreds_setdefaultrootspem');
         ChannelCredentials::setDefaultRootsPem($ssl_roots);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_channelcreds_setdefaultrootspem');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_channelcreds_setdefaultrootspem');
 
         $this->hostname = $hostname;
         $this->update_metadata = null;
@@ -89,9 +89,9 @@ class BaseStub
      */
     public function getTarget()
     {
-        QMetric::startBenchmark('app_time_grpc_channel_gettarget');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_channel_gettarget');
         $target = $this->channel->getTarget();
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_channel_gettarget');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_channel_gettarget');
         return $target;
     }
 
@@ -102,9 +102,9 @@ class BaseStub
      */
     public function getConnectivityState($try_to_connect = false)
     {
-        QMetric::startBenchmark('app_time_grpc_channel_getconnectivitystate');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_channel_getconnectivitystate');
         $connectivityState = $this->channel->getConnectivityState($try_to_connect);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_channel_getconnectivitystate');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_channel_getconnectivitystate');
         return $connectivityState;
     }
 
@@ -121,11 +121,11 @@ class BaseStub
             return true;
         }
 
-        QMetric::startBenchmark('app_time_grpc_timeval');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_timeval');
         $now = Timeval::now();
         $delta = new Timeval($timeout);
         $deadline = $now->add($delta);
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_timeval');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_timeval');
 
         while ($this->channel->watchConnectivityState($new_state, $deadline)) {
             // state has changed before deadline
@@ -145,9 +145,9 @@ class BaseStub
      */
     public function close()
     {
-        QMetric::startBenchmark('app_time_grpc_channel_close');
+        \QMetric::startNonoverlappingBenchmark('app_time_grpc_channel_close');
         $this->channel->close();
-        QMetric::profile('spanner.app_time.grpc', 'app_time_grpc_channel_close');
+        \QMetric::profileNonoverlapping('spanner.app_time.grpc', 'app_time_grpc_channel_close');
     }
 
     /**
