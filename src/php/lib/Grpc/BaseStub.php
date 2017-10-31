@@ -44,7 +44,9 @@ class BaseStub
     {
         $ssl_roots = file_get_contents(
             dirname(__FILE__).'/../../../../etc/roots.pem');
+        QMetric::startBenchmark('app_time_grpc_channelcreds_setdefaultrootspem');
         ChannelCredentials::setDefaultRootsPem($ssl_roots);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_channelcreds_setdefaultrootspem');
 
         $this->hostname = $hostname;
         $this->update_metadata = null;
@@ -87,7 +89,10 @@ class BaseStub
      */
     public function getTarget()
     {
-        return $this->channel->getTarget();
+        QMetric::startBenchmark('app_time_grpc_channel_gettarget');
+        $target = $this->channel->getTarget();
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_channel_gettarget');
+        return $target;
     }
 
     /**
@@ -97,7 +102,10 @@ class BaseStub
      */
     public function getConnectivityState($try_to_connect = false)
     {
-        return $this->channel->getConnectivityState($try_to_connect);
+        QMetric::startBenchmark('app_time_grpc_channel_getconnectivitystate');
+        $connectivityState = $this->channel->getConnectivityState($try_to_connect);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_channel_getconnectivitystate');
+        return $connectivityState;
     }
 
     /**
@@ -113,9 +121,11 @@ class BaseStub
             return true;
         }
 
+        QMetric::startBenchmark('app_time_grpc_timeval');
         $now = Timeval::now();
         $delta = new Timeval($timeout);
         $deadline = $now->add($delta);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_timeval');
 
         while ($this->channel->watchConnectivityState($new_state, $deadline)) {
             // state has changed before deadline
@@ -135,7 +145,9 @@ class BaseStub
      */
     public function close()
     {
+        QMetric::startBenchmark('app_time_grpc_channel_close');
         $this->channel->close();
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_channel_close');
     }
 
     /**

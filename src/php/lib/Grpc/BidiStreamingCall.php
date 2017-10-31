@@ -33,9 +33,11 @@ class BidiStreamingCall extends AbstractCall
      */
     public function start(array $metadata = [])
     {
+        QMetric::startBenchmark('app_time_grpc_startbatch');
         $this->call->startBatch([
             OP_SEND_INITIAL_METADATA => $metadata,
         ]);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -49,7 +51,9 @@ class BidiStreamingCall extends AbstractCall
         if ($this->metadata === null) {
             $batch[OP_RECV_INITIAL_METADATA] = true;
         }
+        QMetric::startBenchmark('app_time_grpc_startbatch');
         $read_event = $this->call->startBatch($batch);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
         if ($this->metadata === null) {
             $this->metadata = $read_event->metadata;
         }
@@ -71,9 +75,11 @@ class BidiStreamingCall extends AbstractCall
         if (array_key_exists('flags', $options)) {
             $message_array['flags'] = $options['flags'];
         }
+        QMetric::startBenchmark('app_time_grpc_startbatch');
         $this->call->startBatch([
             OP_SEND_MESSAGE => $message_array,
         ]);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -81,9 +87,11 @@ class BidiStreamingCall extends AbstractCall
      */
     public function writesDone()
     {
+        QMetric::startBenchmark('app_time_grpc_startbatch');
         $this->call->startBatch([
             OP_SEND_CLOSE_FROM_CLIENT => true,
         ]);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
     }
 
     /**
@@ -94,9 +102,11 @@ class BidiStreamingCall extends AbstractCall
      */
     public function getStatus()
     {
+        QMetric::startBenchmark('app_time_grpc_startbatch');
         $status_event = $this->call->startBatch([
             OP_RECV_STATUS_ON_CLIENT => true,
         ]);
+        QMetric::timing('spanner.app_time.grpc', 'app_time_grpc_startbatch');
 
         $this->trailing_metadata = $status_event->status->metadata;
 
